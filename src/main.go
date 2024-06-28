@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -10,53 +9,29 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/Pedromigacz/learning-go-http/src/internal/handlers"
+	"github.com/Pedromigacz/learning-go-http/src/internal/store"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 )
 
-type Todo struct {
-	Title string `json:"title"`
-	Done  bool   `json:"done"`
-}
-
 func main() {
 
-	todos := []Todo{}
+	todos := []store.Todo{}
 
 	r := chi.NewRouter()
 
 	r.Use(middleware.Logger)
 
-	r.Get("/healthcheck", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("OK"))
-	})
+	r.Get("/healthcheck", handlers.NewHealthcheckHandler().ServerHTTP)
 
-	r.Post("/todos", func(w http.ResponseWriter, r *http.Request) {
-		todo := Todo{}
-		err := json.NewDecoder(r.Body).Decode(&todo)
+	r.Post("/todos", handlers.NewCreateTodoHandler(handlers.CreateTodoHandlerParams{
+		Todos: &todos,
+	}).ServerHTTP)
 
-		r.Body = http.MaxBytesReader(w, r.Body, 1024)
-
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-
-		todos = append(todos, todo)
-
-		w.WriteHeader(http.StatusCreated)
-	})
-
-	r.Get("/todos", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		err := json.NewEncoder(w).Encode(todos)
-
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-
-	})
+	r.Get("/todos", handlers.NewGetTodosHandler(handlers.GetTodosHandlerParams{
+		Todos: &todos,
+	}).ServerHTTP)
 
 	srv := &http.Server{
 		Addr:    ":4000",
